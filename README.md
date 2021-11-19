@@ -1,24 +1,34 @@
-# chroot-to-docker
-This tutorial explains how to use chroot to create an isolated shell, and how to convert that "jail" into a Docker image. 
+# chroot to Docker
 
-Rob's CHROOT to DOCKER Tutorial
+This tutorial explains how to use chroot to create an isolated Bash environment, and how to convert that "jail" into a Docker image.
 
-Open a Terminal
+1. In Linux, everything is a file.
+2. Most distributions of Linux use the Bourne-Again Shell (bash) as their command-line intepreter. The bash executable file contains built-in commands, such as ```cd``` (change directory) and ```pwd``` (print working directory).
+3. A root user can access all files that branch from the root directory (```/```). These files include external commands contained in the ```/bin``` directory, such as ```bash```, ```cp``` (copy), ```ls``` (list), ```find```, etc., and their depndencies in the ```/lib``` and ```/lib64``` directories, such as ```ld-linux-x86-64.so.2``` and ```libdl.so.2```.
+4. The ```chroot [directory name]``` command changes the user's root directory to the specified directory; that directory becomes ```/```. The user will only be able to run programs contained within that directory or its subdirectories. For example, if ```ls``` does not exist in the chroot "jail", the user will not be able to use that command to display file listings.
+5. The process of creating a Docker image is very similar to creating a chroot jail.
+
+- [Using chroot](#using-chroot "Using chroot")
+- [Using Docker](#using-docker "Using Docker")
+
+---
+## Using chroot
+
+Open a Terminal and enter the following commands to create the new root directory:
 
 ```
 cd /home
-```
-
-
-```
 sudo mkdir jailbird
-# Attempt to enter the jailbird
-sudo chroot jailbird
 ```
 
-```
-    chroot: failed to run command '/bin/bash': No such file or directory
-```
+Attempt to chroot into the new root directory:
+
+```sudo chroot jailbird```
+
+You will receive the follwoing message:
+
+```chroot: failed to run command '/bin/bash': No such file or directory```
+
 
 ```
 # Add bash to the jailbird
@@ -30,11 +40,11 @@ ldd /bin/bash
 ```
 
 ```
-    linux-vdso.so.1 =>  (0x00007ffe6fa55000)
-    libtinfo.so.5 => /lib64/libtinfo.so.5 (0x00007effc0335000)
-    libdl.so.2 => /lib64/libdl.so.2 (0x00007effc0131000)
-    libc.so.6 => /lib64/libc.so.6 (0x00007effbfd63000)
-    /lib64/ld-linux-x86-64.so.2 (0x00007effc055f000)
+linux-vdso.so.1 =>  (0x00007ffe6fa55000)
+libtinfo.so.5 => /lib64/libtinfo.so.5 (0x00007effc0335000)
+libdl.so.2 => /lib64/libdl.so.2 (0x00007effc0131000)
+libc.so.6 => /lib64/libc.so.6 (0x00007effbfd63000)
+/lib64/ld-linux-x86-64.so.2 (0x00007effc055f000)
 ```
 
 ```
@@ -49,20 +59,18 @@ ls -l bin
 ```
 
 ```
-    total 944
-    -rwxr-xr-x. 1 root root 964536 Nov 17 11:19 bash
+ total 944
+-rwxr-xr-x. 1 root root 964536 Nov 17 11:19 bash
 ```
 
-```
-ls -l lib64
-```
+```ls -l lib64```
 
 ```
-    total 2460
-    -rwxr-xr-x. 1 root root  163312 Nov 17 11:21 ld-linux-x86-64.so.2
-    -rwxr-xr-x. 1 root root 2156592 Nov 17 11:21 libc.so.6
-    -rwxr-xr-x. 1 root root   19248 Nov 17 11:21 libdl.so.2
-    -rwxr-xr-x. 1 root root  174576 Nov 17 11:21 libtinfo.so.5
+total 2460
+-rwxr-xr-x. 1 root root  163312 Nov 17 11:21 ld-linux-x86-64.so.2
+-rwxr-xr-x. 1 root root 2156592 Nov 17 11:21 libc.so.6
+-rwxr-xr-x. 1 root root   19248 Nov 17 11:21 libdl.so.2
+-rwxr-xr-x. 1 root root  174576 Nov 17 11:21 libtinfo.so.5
 ```
 
 ```
@@ -72,18 +80,14 @@ cd ..
 sudo chroot jailbird
 ```
 
-```
-    bash-4.2# 
-```
+```bash-4.2#```
 
 ```
 # Look up the present working directory using a built-in command
 pwd
 ```
 
-```
-    /
-```
+```/```
 
 ```
 # Go to bin directory using a built-in command
@@ -91,27 +95,21 @@ cd bin
 pwd
 ```
 
-```
-    /bin
-```
+```/bin```
 
 ```
 # Attempt to look at directory contents using an external command
 ls -l
 ```
 
-```
-    bash: ls: command not found
-```
+```bash: ls: command not found```
 
 ```
 # Leave the jailbird
 exit
 ```
 
-```
-    [user ~]$
-```
+```[user ~]$```
 
 ```
 # Add ls to the jailbird
@@ -122,16 +120,16 @@ ldd /bin/ls
 ```
 
 ```
-    linux-vdso.so.1 =>  (0x00007ffd8872f000)
-    libselinux.so.1 => /lib64/libselinux.so.1 (0x00007fda7efa1000)
-    libcap.so.2 => /lib64/libcap.so.2 (0x00007fda7ed9c000)
-    libacl.so.1 => /lib64/libacl.so.1 (0x00007fda7eb93000)
-    libc.so.6 => /lib64/libc.so.6 (0x00007fda7e7c5000)
-    libpcre.so.1 => /lib64/libpcre.so.1 (0x00007fda7e563000)
-    libdl.so.2 => /lib64/libdl.so.2 (0x00007fda7e35f000)
-    /lib64/ld-linux-x86-64.so.2 (0x00007fda7f1c8000)
-    libattr.so.1 => /lib64/libattr.so.1 (0x00007fda7e15a000)
-    libpthread.so.0 => /lib64/libpthread.so.0 (0x00007fda7df3e000)
+linux-vdso.so.1 =>  (0x00007ffd8872f000)
+libselinux.so.1 => /lib64/libselinux.so.1 (0x00007fda7efa1000)
+libcap.so.2 => /lib64/libcap.so.2 (0x00007fda7ed9c000)
+libacl.so.1 => /lib64/libacl.so.1 (0x00007fda7eb93000)
+libc.so.6 => /lib64/libc.so.6 (0x00007fda7e7c5000)
+libpcre.so.1 => /lib64/libpcre.so.1 (0x00007fda7e563000)
+libdl.so.2 => /lib64/libdl.so.2 (0x00007fda7e35f000)
+/lib64/ld-linux-x86-64.so.2 (0x00007fda7f1c8000)
+libattr.so.1 => /lib64/libattr.so.1 (0x00007fda7e15a000)
+libpthread.so.0 => /lib64/libpthread.so.0 (0x00007fda7df3e000)
 ```
 
 ```
@@ -150,27 +148,25 @@ ls -l bin
 ```
 
 ```
-    total 1060
-    -rwxr-xr-x. 1 root root 964536 Nov 17 11:32 bash
-    -rwxr-xr-x. 1 root root 117608 Nov 17 11:39 ls
+total 1060
+-rwxr-xr-x. 1 root root 964536 Nov 17 11:32 bash
+-rwxr-xr-x. 1 root root 117608 Nov 17 11:39 ls
 ```
 
-```
-ls -l lib64
-```
+```ls -l lib64```
 
 ```
-    total 3232
-    -rwxr-xr-x. 1 root root  163312 Nov 17 11:42 ld-linux-x86-64.so.2
-    -rwxr-xr-x. 1 root root   37064 Nov 17 11:42 libacl.so.1
-    -rwxr-xr-x. 1 root root   19896 Nov 17 11:42 libattr.so.1
-    -rwxr-xr-x. 1 root root   20048 Nov 17 11:42 libcap.so.2
-    -rwxr-xr-x. 1 root root 2156592 Nov 17 11:42 libc.so.6
-    -rwxr-xr-x. 1 root root   19248 Nov 17 11:42 libdl.so.2
-    -rwxr-xr-x. 1 root root  402384 Nov 17 11:42 libpcre.so.1
-    -rwxr-xr-x. 1 root root  142144 Nov 17 11:42 libpthread.so.0
-    -rwxr-xr-x. 1 root root  155744 Nov 17 11:42 libselinux.so.1
-    -rwxr-xr-x. 1 root root  174576 Nov 17 11:32 libtinfo.so.5
+total 3232
+-rwxr-xr-x. 1 root root  163312 Nov 17 11:42 ld-linux-x86-64.so.2
+-rwxr-xr-x. 1 root root   37064 Nov 17 11:42 libacl.so.1
+-rwxr-xr-x. 1 root root   19896 Nov 17 11:42 libattr.so.1
+-rwxr-xr-x. 1 root root   20048 Nov 17 11:42 libcap.so.2
+-rwxr-xr-x. 1 root root 2156592 Nov 17 11:42 libc.so.6
+-rwxr-xr-x. 1 root root   19248 Nov 17 11:42 libdl.so.2
+-rwxr-xr-x. 1 root root  402384 Nov 17 11:42 libpcre.so.1
+-rwxr-xr-x. 1 root root  142144 Nov 17 11:42 libpthread.so.0
+-rwxr-xr-x. 1 root root  155744 Nov 17 11:42 libselinux.so.1
+-rwxr-xr-x. 1 root root  174576 Nov 17 11:32 libtinfo.so.5
 ```
 
 ```
@@ -180,9 +176,7 @@ cd ..
 sudo chroot jailbird
 ```
 
-```
-    bash-4.2# 
-```
+```bash-4.2#```
 
 ```
 # Go to bin directory using a built-in command
@@ -190,9 +184,7 @@ cd bin
 pwd
 ```
 
-```
-    /bin
-```
+```/bin```
 
 ```
 # Look at directory contents using an external command
@@ -200,9 +192,9 @@ ls -l
 ```
 
 ```
-    total 1060
-    -rwxr-xr-x. 1 0 0 964536 Nov 17 16:32 bash
-    -rwxr-xr-x. 1 0 0 117608 Nov 17 16:39 ls
+total 1060
+-rwxr-xr-x. 1 0 0 964536 Nov 17 16:32 bash
+-rwxr-xr-x. 1 0 0 117608 Nov 17 16:39 ls
 ```
 
 ```
@@ -210,15 +202,26 @@ ls -l
 exit
 ```
 
-```
-    [user ~]$
-```
+```[user ~]$```
+
+---
+## Using Docker
+
+```which docker```
+
+```/usr/bin/docker```
+
+```sudo yum -y install docker```
+
+```sudo systemctl start docker```
+
+```systemctl status docker```
 
 Create Docker Image:
 
 ```
 cd jailbird
-vim Dockerfile
+sudo vim Dockerfile
 ```
 
 ```
@@ -243,14 +246,12 @@ ADD /lib64/libpthread.so.0 /lib64/libpthread.so.0
 CMD ["/bin/bash"]
 ```
 
-```
-sudo docker build --tag jailbird .
-```
+```sudo docker build --tag jailbird .```
 
 ```
 Sending build context to Docker daemon 4.385 MB
 Step 1/17 : FROM scratch
- ---> 
+ --->
 Step 2/17 : ADD /bin/bash /bin/bash
  ---> 2ba454450eb7
 Removing intermediate container 4347c079bf10
@@ -303,28 +304,20 @@ Removing intermediate container f22b5879ef3a
 Successfully built 06edb23a3f1a
 ```
 
-```
-sudo docker images
-```
+```sudo docker images```
 
 ```
 REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
 jailbird            latest              06edb23a3f1a        48 seconds ago      6.71 MB
 ```
 
-```
-sudo docker run -it jailbird
-```
+```sudo docker run -it jailbird```
 
-```
-bash-4.2#
-```
+```bash-4.2#```
 
 Play around a little bit. To exit, enter ```exit```:
 
-```
-exit
-```
+```exit```
 
 To remove the container and the image:
 
@@ -372,10 +365,10 @@ Deleted: sha256:d16804f7c2771d5f4d216ef64eead755b53bea4ac32464d0387b907537f82144
 
 sudo docker system prune -a
 WARNING! This will remove:
-	- all stopped containers
-	- all volumes not used by at least one container
-	- all networks not used by at least one container
-	- all images without at least one container associated to them
+- all stopped containers
+- all volumes not used by at least one container
+- all networks not used by at least one container
+- all images without at least one container associated to them
 Are you sure you want to continue? [y/N] y
 Total reclaimed space: 0 B
 ```
