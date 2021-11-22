@@ -1,27 +1,26 @@
-# chroot to Docker
+# ```chroot``` to Docker
 
-This tutorial explains how to use chroot to create an isolated Bash environment, and how to convert that "jail" into a Docker image.
+This tutorial explains how to use ```chroot``` to create an isolated Bourne-Again Shell (```bash```) environment, and how to convert that "jail" into a Docker image.
+
+Things to know and remember:
 
 1. In Linux, everything is a file.
-2. Most distributions of Linux use the Bourne-Again Shell (bash) as their command-line intepreter. The bash executable file contains built-in commands, such as ```cd``` (change directory) and ```pwd``` (print working directory).
-3. A root user can access all files that branch from the root directory (```/```). These files include external commands contained in the ```/bin``` directory, such as ```bash```, ```cp``` (copy), ```ls``` (list), ```find```, etc., and their depndencies in the ```/lib``` and ```/lib64``` directories, such as ```ld-linux-x86-64.so.2``` and ```libdl.so.2```.
-4. The ```chroot [directory name]``` command changes the user's root directory to the specified directory; that directory becomes ```/```. The user will only be able to run programs contained within that directory or its subdirectories. For example, if ```ls``` does not exist in the chroot "jail", the user will not be able to use that command to display file listings.
-5. The process of creating a Docker image is very similar to creating a chroot jail.
+2. Most distributions of Linux use ```bash``` as their command-line intepreter (CLI). The ```bash``` executable file contains built-in commands, such as ```cd``` (change directory) and ```pwd``` (print working directory).
+3. A root user can access all files that branch from the root directory (```/```). These files include external commands contained in the ```/bin``` directory, such as ```cp``` (copy), ```ls``` (list), ```find```, etc., and the libraries these programs depend on, , such as ```ld-linux-x86-64.so.2``` and ```libdl.so.2```, located in the ```/lib``` and ```/lib64``` directories.
+4. The ```chroot [directory name]``` command switches the user's root directory to the specified directory; the specified directory becomes ```/```. The user will only be able to run programs contained within that directory or its subdirectories; they cannot go outside their jail. For example, if ```ls``` does not exist in the ```chroot``` "jail", the user will not be able to use that command, even if it in the host system's ```bin``` directory.
+5. You can easily convert a ```chroot``` directory structure into a Docker container.
 
 - [Using chroot](#using-chroot "Using chroot")
 - [Using Docker](#using-docker "Using Docker")
 
 ---
-## Using chroot
+## Using ```chroot```
 
 Open a Terminal and enter the following commands to create the new root directory:
 
-```
-cd /home
-sudo mkdir jailbird
-```
+```sudo mkdir /home/jailbird```
 
-Attempt to chroot into the new root directory:
+Attempt to ```chroot``` into the new root directory:
 
 ```sudo chroot jailbird```
 
@@ -29,15 +28,18 @@ You will receive the follwoing message:
 
 ```chroot: failed to run command '/bin/bash': No such file or directory```
 
+Copy a shell program, such as ```bash```, into the directory:
 
 ```
-# Add bash to the jailbird
-cd jailbird
-sudo mkdir bin
-sudo cp /bin/bash bin
-# Look up bash dependencies
-ldd /bin/bash
+sudo mkdir /home/jailbird/bin
+sudo cp /bin/bash /home/jailbird/bin
 ```
+
+You will also need to include any library that ```bash``` depends on. Look them up first, using the ```ldd``` (List Dynamic Dependencies) command:
+
+```ldd /bin/bash```
+
+You will see the list of files, similar to the following:
 
 ```
 linux-vdso.so.1 =>  (0x00007ffe6fa55000)
@@ -47,25 +49,52 @@ libc.so.6 => /lib64/libc.so.6 (0x00007effbfd63000)
 /lib64/ld-linux-x86-64.so.2 (0x00007effc055f000)
 ```
 
-```
-# Copy bash dependencies to jailbird
-sudo mkdir lib64
-sudo cp /lib64/libtinfo.so.5 lib64
-sudo cp /lib64/libdl.so.2 lib64
-sudo cp /lib64/libc.so.6 lib64
-sudo cp /lib64/ld-linux-x86-64.so.2 lib64
-# Check files
-ls -l bin
-```
+>**NOTE** - I am using CentOS 7. Your list may contain a different set of files if you are using another Linux system, such as Ubuntu:
+>
+>```
+># Ubuntu 20.04
+>linux-vdso.so.1 (0x00007ffc39bf7000)
+>libtinfo.so.6 => /lib/x86_64-linux-gnu/libtinfo.so.6 (0x00007f6085373000)
+>libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f608536d000)
+>libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f608517b000)
+>/lib64/ld-linux-x86-64.so.2 (0x00007f60854e0000)
+>```
+
+Copy the ```bash``` dependencies into the new root directory:
 
 ```
+sudo mkdir lib64
+sudo cp /lib64/libtinfo.so.5 /home/jailbird/lib64
+sudo cp /lib64/libdl.so.2 /home/jailbird/lib64
+sudo cp /lib64/libc.so.6 /home/jailbird/lib64
+sudo cp /lib64/ld-linux-x86-64.so.2 /home/jailbird/lib64
+```
+
+>**NOTE** - Other operating systems, such as Ubuntu, may use different directories, or directories with sub-directories. Make sure all files are "mirrored" correctly in the new root directory, for example:
+>
+>```
+># Ubuntu 20.04
+>sudo mkdir /home/jailbird/lib
+>sudo mkdir /home/jailbird/lib/x86_64-linux-gnu
+>sudo mkdir /home/jailbird/lib64
+>sudo cp /lib/x86_64-linux-gnu/libtinfo.so.6 /home/jailbird/lib/x86_64-linux-gnu
+>sudo cp /lib/x86_64-linux-gnu/libdl.so.2 /home/jailbird/lib/x86_64-linux-gnu
+>sudo cp /lib/x86_64-linux-gnu/libc.so.6 /home/jailbird/lib/x86_64-linux-gnu
+>sudo cp /lib64/ld-linux-x86-64.so.2 /home/jailbird/lib64
+>```
+
+Verify that you correctly copied the files the new root directory:
+
+```ls -l /home/jailbird/bin /home/jailbird/lib64```
+
+You should see the following output:
+
+```
+/home/jailbird/bin:
  total 944
 -rwxr-xr-x. 1 root root 964536 Nov 17 11:19 bash
-```
 
-```ls -l lib64```
-
-```
+/home/jailbird/lib64:
 total 2460
 -rwxr-xr-x. 1 root root  163312 Nov 17 11:21 ld-linux-x86-64.so.2
 -rwxr-xr-x. 1 root root 2156592 Nov 17 11:21 libc.so.6
@@ -73,51 +102,68 @@ total 2460
 -rwxr-xr-x. 1 root root  174576 Nov 17 11:21 libtinfo.so.5
 ```
 
+Make sure you are in the ```home``` directory, and enter the new root directory:
+
 ```
-# Go back to home directory
-cd ..
-# Enter the jailbird
+cd /home
 sudo chroot jailbird
 ```
 
+You are welcomed with a ```bash``` prompt:
+
 ```bash-4.2#```
 
-```
-# Look up the present working directory using a built-in command
-pwd
-```
+Look up the present working directory, using a built-in command:
+
+```pwd```
+
+It will appear as your root directory:
 
 ```/```
 
+Attempt to reach the parent ```home``` directory, using a built-in command:
+
+```cd /home```
+
+You will receive the following error:
+
+```bash: cd: /home: No such file or directory```
+
+Go to ```bin``` sub-directory you created earlier, and verify you are there, using a built-in command:
+
 ```
-# Go to bin directory using a built-in command
-cd bin
+cd /bin
 pwd
 ```
 
 ```/bin```
 
-```
-# Attempt to look at directory contents using an external command
-ls -l
-```
+Attempt to look at directory contents, using a common external command:
+
+```ls -l```
+
+Since ```ls``` is not a built-in command or present in the ```bin``` directory, you will receive the following error:
 
 ```bash: ls: command not found```
 
-```
-# Leave the jailbird
-exit
-```
+Let's fix that. Leave the jailbird:
 
-```[user ~]$```
+```exit```
+
+You should be back at the Terminal prompt:
+
+```/home]$```
+
+Add ```ls``` to the jailbird, as you did with ```bash```:
 
 ```
-# Add ls to the jailbird
-cd jailbird
-sudo cp /bin/ls bin
+# Copy the external command to the new root directory
+sudo cp /bin/ls /home/jailbird/bin
 # Look up ls dependencies
 ldd /bin/ls
 ```
+
+>**NOTE** - Remember, these files may be different, depending on the OS you are using.
 
 ```
 linux-vdso.so.1 =>  (0x00007ffd8872f000)
@@ -132,8 +178,9 @@ libattr.so.1 => /lib64/libattr.so.1 (0x00007fda7e15a000)
 libpthread.so.0 => /lib64/libpthread.so.0 (0x00007fda7df3e000)
 ```
 
+Copy the dependencies to the new root directory (some may already exist there):
+
 ```
-# Copy ls dependencies to jailbird
 sudo cp /lib64/libselinux.so.1 lib64
 sudo cp /lib64/libcap.so.2 lib64
 sudo cp /lib64/libacl.so.1 lib64
@@ -143,19 +190,21 @@ sudo cp /lib64/libdl.so.2 lib64
 sudo cp /lib64/ld-linux-x86-64.so.2 lib64
 sudo cp /lib64/libattr.so.1 lib64
 sudo cp /lib64/libpthread.so.0 lib64
-# Check files
-ls -l bin
 ```
 
+Verify that you correctly copied the files the new root directory:
+
+```ls -l /home/jailbird/bin /home/jailbird/lib64```
+
+You should see the following output:
+
 ```
+/home/jailbird/bin:
 total 1060
 -rwxr-xr-x. 1 root root 964536 Nov 17 11:32 bash
 -rwxr-xr-x. 1 root root 117608 Nov 17 11:39 ls
-```
 
-```ls -l lib64```
-
-```
+/home/jailbird/lib64:
 total 3232
 -rwxr-xr-x. 1 root root  163312 Nov 17 11:42 ld-linux-x86-64.so.2
 -rwxr-xr-x. 1 root root   37064 Nov 17 11:42 libacl.so.1
@@ -169,27 +218,31 @@ total 3232
 -rwxr-xr-x. 1 root root  174576 Nov 17 11:32 libtinfo.so.5
 ```
 
+Make sure you are in the ```home``` directory, and enter the new root directory:
+
 ```
-# Go back to home directory
-cd ..
-# Enter the jailbird
+cd /home
 sudo chroot jailbird
 ```
 
+You are welcomed with a ```bash``` prompt:
+
 ```bash-4.2#```
 
+Go to ```bin``` sub-directory you created earlier, and verify you are there, using a built-in command:
+
 ```
-# Go to bin directory using a built-in command
-cd bin
+cd /bin
 pwd
 ```
 
 ```/bin```
 
-```
-# Look at directory contents using an external command
-ls -l
-```
+Attempt to look at directory contents, using a common external command:
+
+```ls -l```
+
+This time, the files appear:
 
 ```
 total 1060
@@ -197,12 +250,13 @@ total 1060
 -rwxr-xr-x. 1 0 0 117608 Nov 17 16:39 ls
 ```
 
-```
-# Leave the jailbird
-exit
-```
+Leave the jailbird:
 
-```[user ~]$```
+```exit```
+
+You should be back at the Terminal prompt:
+
+```/home]$```
 
 ---
 ## Using Docker
@@ -228,20 +282,19 @@ sudo vim Dockerfile
 FROM scratch
 
 ADD /bin/bash /bin/bash
-ADD /lib64/libtinfo.so.5 /lib64/libtinfo.so.5
-ADD /lib64/libdl.so.2 /lib64/libdl.so.2
-ADD /lib64/libc.so.6 /lib64/libc.so.6
-ADD /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+ADD /bin/whoami /bin/whoami
 ADD /bin/ls /bin/ls
-ADD /lib64/libselinux.so.1 /lib64/libselinux.so.1
-ADD /lib64/libcap.so.2 /lib64/libcap.so.2
-ADD /lib64/libacl.so.1 /lib64/libacl.so.1
-ADD /lib64/libc.so.6 /lib64/libc.so.6
-ADD /lib64/libpcre.so.1 /lib64/libpcre.so.1
-ADD /lib64/libdl.so.2 /lib64/libdl.so.2
+
 ADD /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+ADD /lib64/libacl.so.1 /lib64/libacl.so.1
 ADD /lib64/libattr.so.1 /lib64/libattr.so.1
+ADD /lib64/libc.so.6 /lib64/libc.so.6
+ADD /lib64/libcap.so.2 /lib64/libcap.so.2
+ADD /lib64/libdl.so.2 /lib64/libdl.so.2
+ADD /lib64/libpcre.so.1 /lib64/libpcre.so.1
 ADD /lib64/libpthread.so.0 /lib64/libpthread.so.0
+ADD /lib64/libselinux.so.1 /lib64/libselinux.so.1
+ADD /lib64/libtinfo.so.5 /lib64/libtinfo.so.5
 
 CMD ["/bin/bash"]
 ```
@@ -249,59 +302,53 @@ CMD ["/bin/bash"]
 ```sudo docker build --tag jailbird .```
 
 ```
-Sending build context to Docker daemon 4.385 MB
-Step 1/17 : FROM scratch
- --->
-Step 2/17 : ADD /bin/bash /bin/bash
- ---> 2ba454450eb7
-Removing intermediate container 4347c079bf10
-Step 3/17 : ADD /lib64/libtinfo.so.5 /lib64/libtinfo.so.5
- ---> 650d0d5080a9
-Removing intermediate container 64708923db92
-Step 4/17 : ADD /lib64/libdl.so.2 /lib64/libdl.so.2
- ---> c4c94fafcf74
-Removing intermediate container 1357b86a5fcd
-Step 5/17 : ADD /lib64/libc.so.6 /lib64/libc.so.6
- ---> 77508ccdd32a
-Removing intermediate container b5c861077ae8
-Step 6/17 : ADD /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
- ---> 8760235de8c5
-Removing intermediate container f5190bb9a319
-Step 7/17 : ADD /bin/ls /bin/ls
- ---> d40642ccc7ac
-Removing intermediate container 8a68f3f937e1
-Step 8/17 : ADD /lib64/libselinux.so.1 /lib64/libselinux.so.1
- ---> a9c4afec1f23
-Removing intermediate container 33f7041c7785
-Step 9/17 : ADD /lib64/libcap.so.2 /lib64/libcap.so.2
- ---> 8eb51378d2b2
-Removing intermediate container e66462f37edd
-Step 10/17 : ADD /lib64/libacl.so.1 /lib64/libacl.so.1
- ---> 35fbf8636d5a
-Removing intermediate container 93904f857221
-Step 11/17 : ADD /lib64/libc.so.6 /lib64/libc.so.6
- ---> 368f024496fd
-Removing intermediate container 0c806cd6f2ae
-Step 12/17 : ADD /lib64/libpcre.so.1 /lib64/libpcre.so.1
- ---> a788355ebe8b
-Removing intermediate container 56026b84c04c
-Step 13/17 : ADD /lib64/libdl.so.2 /lib64/libdl.so.2
- ---> b9eafa74c422
-Removing intermediate container 47f975f1d550
-Step 14/17 : ADD /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
- ---> 9c8e9f746205
-Removing intermediate container 500c949b81ed
-Step 15/17 : ADD /lib64/libattr.so.1 /lib64/libattr.so.1
- ---> 4ad587445363
-Removing intermediate container 4f10092b7ea7
-Step 16/17 : ADD /lib64/libpthread.so.0 /lib64/libpthread.so.0
- ---> 25c4cadafe9f
-Removing intermediate container 0f81fce22f80
-Step 17/17 : CMD /bin/bash
- ---> Running in f22b5879ef3a
- ---> 06edb23a3f1a
-Removing intermediate container f22b5879ef3a
-Successfully built 06edb23a3f1a
+Sending build context to Docker daemon 4.415 MB
+Step 1/15 : FROM scratch
+ ---> 
+Step 2/15 : ADD /bin/bash /bin/bash
+ ---> Using cache
+ ---> 4104d1cce445
+Step 3/15 : ADD /bin/whoami /bin/whoami
+ ---> ea22ed6f1ebc
+Removing intermediate container 1ba82272a6b5
+Step 4/15 : ADD /bin/ls /bin/ls
+ ---> 3c48301deba1
+Removing intermediate container 2325085fc57d
+Step 5/15 : ADD /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+ ---> 0a23d9d0c2cf
+Removing intermediate container b3c17e3bdba7
+Step 6/15 : ADD /lib64/libacl.so.1 /lib64/libacl.so.1
+ ---> d04fce99ffe7
+Removing intermediate container 74ab429bb068
+Step 7/15 : ADD /lib64/libattr.so.1 /lib64/libattr.so.1
+ ---> 858ea10fd592
+Removing intermediate container de06e9a33cea
+Step 8/15 : ADD /lib64/libc.so.6 /lib64/libc.so.6
+ ---> cf38f1c10da0
+Removing intermediate container 4fde320ce20f
+Step 9/15 : ADD /lib64/libcap.so.2 /lib64/libcap.so.2
+ ---> 7c18e6715ff2
+Removing intermediate container 803bf092752e
+Step 10/15 : ADD /lib64/libdl.so.2 /lib64/libdl.so.2
+ ---> e001e1e1a77d
+Removing intermediate container d09e7bfdeabb
+Step 11/15 : ADD /lib64/libpcre.so.1 /lib64/libpcre.so.1
+ ---> 10ec733763c6
+Removing intermediate container c116315dfeb4
+Step 12/15 : ADD /lib64/libpthread.so.0 /lib64/libpthread.so.0
+ ---> e964205de279
+Removing intermediate container 527b45a24580
+Step 13/15 : ADD /lib64/libselinux.so.1 /lib64/libselinux.so.1
+ ---> fd1484de3480
+Removing intermediate container 5b15658b83a6
+Step 14/15 : ADD /lib64/libtinfo.so.5 /lib64/libtinfo.so.5
+ ---> f5235ea2c25f
+Removing intermediate container 7a18a47660b1
+Step 15/15 : CMD /bin/bash
+ ---> Running in 901297a6ed17
+ ---> 1ed94b3b5376
+Removing intermediate container 901297a6ed17
+Successfully built 1ed94b3b5376
 ```
 
 ```sudo docker images```
