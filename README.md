@@ -1,6 +1,6 @@
 # ```chroot``` to Docker
 
-This tutorial explains how to use ```chroot``` to create an isolated Bourne-Again Shell (```bash```) environment, and how to convert that "jail" into a Docker image.
+This tutorial explains how you can use ```chroot``` to create an isolated Bourne-Again Shell (```bash```) environment, and how to convert that "jail" into a Docker image.
 
 Things to know and remember:
 
@@ -8,7 +8,7 @@ Things to know and remember:
 2. Most distributions of Linux use ```bash``` as their command-line intepreter (CLI). The ```bash``` executable file contains built-in commands, such as ```cd``` (change directory) and ```pwd``` (print working directory).
 3. A root user can access all files that branch from the root directory (```/```). These files include external commands contained in the ```/bin``` directory, such as ```cp``` (copy), ```ls``` (list), ```find```, etc., and the libraries these programs depend on, , such as ```ld-linux-x86-64.so.2``` and ```libdl.so.2```, located in the ```/lib``` and ```/lib64``` directories.
 4. The ```chroot [directory name]``` command switches the user's root directory to the specified directory; the specified directory becomes ```/```. The user will only be able to run programs contained within that directory or its subdirectories; they cannot go outside their jail. For example, if ```ls``` does not exist in the ```chroot``` "jail", the user will not be able to use that command, even if it in the host system's ```bin``` directory.
-5. You can easily convert a ```chroot``` directory structure into a Docker container.
+5. You can easily convert a ```chroot``` directory into a Docker container.
 
 - [Using chroot](#using-chroot "Using chroot")
 - [Using Docker](#using-docker "Using Docker")
@@ -35,7 +35,7 @@ sudo mkdir /home/jailbird/bin
 sudo cp /bin/bash /home/jailbird/bin
 ```
 
-You will also need to include any library that ```bash``` depends on. Look them up first, using the ```ldd``` (List Dynamic Dependencies) command:
+You will also need to include any libraries that ```bash``` depends on. Look them up first, using the ```ldd``` (list dynamic dependencies) command:
 
 ```ldd /bin/bash```
 
@@ -49,7 +49,7 @@ libc.so.6 => /lib64/libc.so.6 (0x00007effbfd63000)
 /lib64/ld-linux-x86-64.so.2 (0x00007effc055f000)
 ```
 
->**NOTE** - I am using CentOS 7. Your list may contain a different set of files if you are using another Linux system, such as Ubuntu:
+>**NOTE** - I am using CentOS 7. Your list may contain a different set of files if you are using another Linux operating system, such as Ubuntu:
 >
 >```
 ># Ubuntu 20.04
@@ -70,7 +70,7 @@ sudo cp /lib64/libc.so.6 /home/jailbird/lib64
 sudo cp /lib64/ld-linux-x86-64.so.2 /home/jailbird/lib64
 ```
 
->**NOTE** - Other operating systems, such as Ubuntu, may use different directories, or directories with sub-directories. Make sure all files are "mirrored" correctly in the new root directory, for example:
+>**NOTE** - Other operating systems, such as Ubuntu, may use different directories, or directories with sub-directories. Make sure you "mirror" all the files correctly in the new root directory, for example:
 >
 >```
 ># Ubuntu 20.04
@@ -123,9 +123,9 @@ It will appear as your root directory:
 
 Attempt to reach the parent ```home``` directory, using a built-in command:
 
-```cd /home```
+```cd ..``` or ```cd /home```
 
-You will receive the following error:
+Nothing will happen or you will receive the following error:
 
 ```bash: cd: /home: No such file or directory```
 
@@ -181,15 +181,15 @@ libpthread.so.0 => /lib64/libpthread.so.0 (0x00007fda7df3e000)
 Copy the dependencies to the new root directory (some may already exist there):
 
 ```
-sudo cp /lib64/libselinux.so.1 lib64
-sudo cp /lib64/libcap.so.2 lib64
-sudo cp /lib64/libacl.so.1 lib64
-sudo cp /lib64/libc.so.6 lib64
-sudo cp /lib64/libpcre.so.1 lib64
-sudo cp /lib64/libdl.so.2 lib64
-sudo cp /lib64/ld-linux-x86-64.so.2 lib64
-sudo cp /lib64/libattr.so.1 lib64
-sudo cp /lib64/libpthread.so.0 lib64
+sudo cp /lib64/libselinux.so.1 /home/jailbird/lib64
+sudo cp /lib64/libcap.so.2 /home/jailbird/lib64
+sudo cp /lib64/libacl.so.1 /home/jailbird/lib64
+sudo cp /lib64/libc.so.6 /home/jailbird/lib64
+sudo cp /lib64/libpcre.so.1 /home/jailbird/lib64
+sudo cp /lib64/libdl.so.2 /home/jailbird/lib64
+sudo cp /lib64/ld-linux-x86-64.so.2 /home/jailbird/lib64
+sudo cp /lib64/libattr.so.1 /home/jailbird/lib64
+sudo cp /lib64/libpthread.so.0 /home/jailbird/lib64
 ```
 
 Verify that you correctly copied the files the new root directory:
@@ -242,7 +242,7 @@ Attempt to look at directory contents, using a common external command:
 
 ```ls -l```
 
-This time, the files appear:
+This time, ```ls``` works, and a list of  files appear:
 
 ```
 total 1060
@@ -282,19 +282,18 @@ sudo vim Dockerfile
 FROM scratch
 
 ADD /bin/bash /bin/bash
-ADD /bin/whoami /bin/whoami
 ADD /bin/ls /bin/ls
 
-ADD /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
-ADD /lib64/libacl.so.1 /lib64/libacl.so.1
-ADD /lib64/libattr.so.1 /lib64/libattr.so.1
-ADD /lib64/libc.so.6 /lib64/libc.so.6
-ADD /lib64/libcap.so.2 /lib64/libcap.so.2
-ADD /lib64/libdl.so.2 /lib64/libdl.so.2
-ADD /lib64/libpcre.so.1 /lib64/libpcre.so.1
-ADD /lib64/libpthread.so.0 /lib64/libpthread.so.0
-ADD /lib64/libselinux.so.1 /lib64/libselinux.so.1
 ADD /lib64/libtinfo.so.5 /lib64/libtinfo.so.5
+ADD /lib64/libdl.so.2 /lib64/libdl.so.2
+ADD /lib64/libc.so.6 /lib64/libc.so.6
+ADD /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+ADD /lib64/libselinux.so.1 /lib64/libselinux.so.1
+ADD /lib64/libcap.so.2 /lib64/libcap.so.2
+ADD /lib64/libacl.so.1 /lib64/libacl.so.1
+ADD /lib64/libpcre.so.1 /lib64/libpcre.so.1
+ADD /lib64/libattr.so.1 /lib64/libattr.so.1
+ADD /lib64/libpthread.so.0 /lib64/libpthread.so.0
 
 CMD ["/bin/bash"]
 ```
