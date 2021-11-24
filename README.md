@@ -5,7 +5,7 @@ This tutorial explains how you can use ```chroot``` to create an isolated Bourne
 Things to know and remember:
 
 1. In Linux, everything is a file.
-2. Most distributions of Linux use ```bash``` as their command-line intepreter (CLI). The ```bash``` executable file contains built-in commands, such as ```cd``` (change directory) and ```pwd``` (print working directory).
+2. Most distributions of Linux use ```bash``` as their command-line interpreter (CLI). The ```bash``` executable file contains built-in commands, such as ```cd``` (change directory) and ```pwd``` (print working directory).
 3. A root user can access all files that branch from the root directory (```/```). These files include external commands contained in the ```/bin``` directory, such as ```cp``` (copy), ```ls``` (list), ```find```, etc., and the libraries these programs depend on, , such as ```ld-linux-x86-64.so.2``` and ```libdl.so.2```, located in the ```/lib``` and ```/lib64``` directories.
 4. The ```chroot [directory name]``` command switches the user's root directory to the specified directory; the specified directory becomes ```/```. The user will only be able to run programs contained within that directory or its subdirectories; they cannot go outside their jail. For example, if ```ls``` does not exist in the ```chroot``` "jail", the user will not be able to use that command, even if it in the host system's ```bin``` directory.
 5. You can easily convert a ```chroot``` directory into a Docker container.
@@ -24,7 +24,7 @@ Attempt to ```chroot``` into the new root directory:
 
 ```sudo chroot jailbird```
 
-You will receive the follwoing message:
+After a few seconds, you will see the following output:
 
 ```chroot: failed to run command '/bin/bash': No such file or directory```
 
@@ -39,7 +39,7 @@ You will also need to include any libraries that ```bash``` depends on. Look the
 
 ```ldd /bin/bash```
 
-You will see the list of files, similar to the following:
+After a few seconds, you will see a list of files, similar to the following:
 
 ```
 linux-vdso.so.1 =>  (0x00007ffe6fa55000)
@@ -87,7 +87,7 @@ Verify that you correctly copied the files the new root directory:
 
 ```ls -l /home/jailbird/bin /home/jailbird/lib64```
 
-You should see the following output:
+After a few seconds, you will see the following output:
 
 ```
 /home/jailbird/bin:
@@ -129,7 +129,7 @@ Nothing will happen or you will receive the following error:
 
 ```bash: cd: /home: No such file or directory```
 
-Go to ```bin``` sub-directory you created earlier, and verify you are there, using a built-in command:
+Go to ```bin``` sub-directory you created earlier and verify you are there, using a built-in command:
 
 ```
 cd /bin
@@ -196,7 +196,7 @@ Verify that you correctly copied the files the new root directory:
 
 ```ls -l /home/jailbird/bin /home/jailbird/lib64```
 
-You should see the following output:
+After a few seconds, you will see the following output:
 
 ```
 /home/jailbird/bin:
@@ -229,7 +229,7 @@ You are welcomed with a ```bash``` prompt:
 
 ```bash-4.2#```
 
-Go to ```bin``` sub-directory you created earlier, and verify you are there, using a built-in command:
+Go to ```bin``` sub-directory you created earlier and verify you are there, using a built-in command:
 
 ```
 cd /bin
@@ -261,22 +261,38 @@ You should be back at the Terminal prompt:
 ---
 ## Using Docker
 
+>**NOTE** - Before installing or starting services, I recommend that you update your system before continuing (i.e., ```sudo yum update``` or ```sudo apt update```).
+
+Now you will create a Docker image, using the ```chroot``` jail you created as a base. First, find out if Docker is installed on your system:
+
 ```which docker```
+
+If Docker is installed, Linux will return the location of the Docker executable:
 
 ```/usr/bin/docker```
 
+If not, enter the following command to install Docker:
+
 ```sudo yum -y install docker```
+
+Once installed, start the Docker service:
 
 ```sudo systemctl start docker```
 
+You can check the status of the service by entering the following command:
+
 ```systemctl status docker```
 
-Create Docker Image:
+Go to the ```chroot``` jail and add a Dockerfile:
 
 ```
-cd jailbird
-sudo vim Dockerfile
+cd /home/jailbird
+touch Dockerfile
 ```
+
+Using your favorite editor (```vim```, ```emacs```, ```nano```, ```gedit```, etc.), open the Dockerfile and add the following commands:
+
+>**NOTE** - Remember, these files may be different, depending on the OS you are using.
 
 ```
 FROM scratch
@@ -298,7 +314,11 @@ ADD /lib64/libpthread.so.0 /lib64/libpthread.so.0
 CMD ["/bin/bash"]
 ```
 
+Create the Docker image:
+
 ```sudo docker build --tag jailbird .```
+
+After a few seconds, you will see the following output similar to the following:
 
 ```
 Sending build context to Docker daemon 4.415 MB
@@ -350,6 +370,8 @@ Removing intermediate container 901297a6ed17
 Successfully built 1ed94b3b5376
 ```
 
+Check for errors; if any appear, repeat the creation process. Otherwise, verify the Docker image exists:
+
 ```sudo docker images```
 
 ```
@@ -357,7 +379,11 @@ REPOSITORY          TAG                 IMAGE ID            CREATED             
 jailbird            latest              06edb23a3f1a        48 seconds ago      6.71 MB
 ```
 
+Start the Docker container by entering the following command:
+
 ```sudo docker run -it jailbird```
+
+You are welcomed with a bash prompt:
 
 ```bash-4.2#```
 
@@ -365,17 +391,30 @@ Play around a little bit. To exit, enter ```exit```:
 
 ```exit```
 
-To remove the container and the image:
+To remove the container and the image, look the image's container ID and name:
+
+```sudo docker container ls -a```
+
+After a few seconds, you will see the following output:
 
 ```
-sudo docker container ls -a
 CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS                          PORTS               NAMES
 4fa380eb6e18        jailbird            "/bin/bash"         2 minutes ago       Exited (0) About a minute ago                       trusting_swartz
+```
 
-sudo docker container rm 4fa380eb6e18 # or trusting_swartz
-4fa380eb6e18
+First, you will need to remove the container:
 
-sudo docker image rm jailbird
+```sudo docker container rm 4fa380eb6e18 # or trusting_swartz```
+
+If you successfully removed the image, Docker will return the container ID (```4fa380eb6e18```).
+
+Next, remove the image itself:
+
+```sudo docker image rm jailbird```
+
+After a few seconds, you will see the following output:
+
+```
 Untagged: jailbird:latest
 Deleted: sha256:06edb23a3f1a08d85b1cdf956c19a2726fd18b7a3542a7ee65cbb194195b9aca
 Deleted: sha256:25c4cadafe9f9e5e7f63e3a0657eb4d131de1710be4433fe0ee9e958bd15c338
@@ -408,8 +447,15 @@ Deleted: sha256:650d0d5080a9a620680c1fb0e55a12f9b1eda62519282c2f0931c1d0e0b04f83
 Deleted: sha256:720405debb4fcf4987f386eba3c5633dade35e680e24bc0900b0941bee600043
 Deleted: sha256:2ba454450eb7c4d32740e3375ea16d25fa8ff258a59ae2f6f0a0971db81d476d
 Deleted: sha256:d16804f7c2771d5f4d216ef64eead755b53bea4ac32464d0387b907537f82144
+```
 
-sudo docker system prune -a
+You can also remove all containers and images using the following command:
+
+```sudo docker system prune -a```
+
+After a few seconds, Docker will ask if you are sure you want to delete those files:
+
+```
 WARNING! This will remove:
 - all stopped containers
 - all volumes not used by at least one container
@@ -419,9 +465,21 @@ Are you sure you want to continue? [y/N] y
 Total reclaimed space: 0 B
 ```
 
-Inherited Bash Commands
+---
+## Included Scripts
 
-https://www.gnu.org/software/bash/manual/html_node/Builtin-Index.html
+I have included scripts to automate these commands. First, make sure you set the correct permissions:
+
+```sudo chmod 777 chroot_centos.sh```
+
+You can run them from your ```/home``` directory:
+
+```sh  chroot_centos.sh``` or ```./ chroot_centos.sh```
+
+---
+## Inherited Bash Commands
+
+See also: [gnu - Index of Shell Builtin Commands](https://www.gnu.org/software/bash/manual/html_node/Builtin-Index.html "gnu - Index of Shell Builtin Commands").
 
 ```
 alias: Bash Builtins
@@ -484,8 +542,8 @@ wait: Job Control Builtins
 
 - - - - - - - - - - - - - - - - - - - -
 
-Reference:
-https://man7.org/linux/man-pages/man1/ldd.1.html
-https://www.youtube.com/watch?v=2wSJREC7RV8&ab_channel=RobBraxmanTech
-https://unix.stackexchange.com/questions/559937/using-useradd-r-for-chrooting
-https://www.tecmint.com/restrict-ssh-user-to-directory-using-chrooted-jail/
+## Good References
+
+- [ldd(1) - Linux manual page](https://man7.org/linux/man-pages/man1/ldd.1.html "ldd(1) — Linux manual page")
+- [Understanding Chroot - Rob Braxman](https://www.youtube.com/watch?v=2wSJREC7RV8&ab_channel=RobBraxmanTech "Understanding Chroot - Rob Braxman")
+- [Restrict SSH User Access to Certain Directory Using Chrooted Jail - Aaron Kili](https://www.tecmint.com/restrict-ssh-user-to-directory-using-chrooted-jail/ "Restrict SSH User Access to Certain Directory Using Chrooted Jail - Aaron Kili")
