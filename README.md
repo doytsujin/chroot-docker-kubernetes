@@ -1,5 +1,7 @@
 # ```chroot``` to Docker
 
+![chroot-to-Docker-to-K8s](chroot-docker-k8s.gif)
+
 This tutorial explains how you can use ```chroot``` to create an isolated Bourne-Again Shell (```bash```) environment, and how to convert that "jail" into a Docker image.
 
 Things to know and remember:
